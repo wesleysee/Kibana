@@ -3,13 +3,13 @@ module KibanaConfig
   # Your elastic search server(s). This may be set as an array for round robin
   # load balancing
   # Elasticsearch = ["elasticsearch1:9200","elasticsearch2:9200"]
-  Elasticsearch = "localhost:9200"
+  Elasticsearch = "23.21.200.222:9200"
 
   #Set the Net::HTTP read/open timeouts for the connection to the ES backend
   ElasticsearchTimeout = 500
 
   # The port Kibana should listen on
-  KibanaPort = 5601
+  KibanaPort = 15601
 
   # The adress ip Kibana should listen on. Comment out or set to
   # 0.0.0.0 to listen on all interfaces.
@@ -27,7 +27,7 @@ module KibanaConfig
   # The record type as defined in your logstash configuration.
   # Seperate multiple types with a comma, no spaces. Leave blank
   # for all.
-  Type = ''
+  Type = 'web-api,web-open'
 
   # Results to show per page
   Per_page = 50
@@ -49,7 +49,7 @@ module KibanaConfig
 
   # Change which fields are shown by default. Must be set as an array
   # Default_fields = ['@fields.vhost','@fields.response','@fields.request']
-  Default_fields = ['@message']
+  Default_fields = ['@fields.path', '@fields.input', '@fields.output', '@fields.user', '@fields.transactions']
 
   # If set to true, Kibana will use the Highlight feature of Elasticsearch to 
   # display highlighted search results
@@ -134,10 +134,10 @@ module KibanaConfig
   # field called _all that is searched when no field is specified.
   # Dropping _all can reduce index size significantly. If you do that
   # you'll need to change primary_field to be '@message'
-  Primary_field = '_all'
+  Primary_field = '@fields.input'
 
   # Default Elastic Search index to query
-  Default_index = '_all'
+  Default_index = '@fields.input'
 
   # TODO: This isn't functional yet
   # Prevent wildcard search terms which result in extremely slow queries

@@ -68,6 +68,7 @@ function pageload(hash) {
     case 'score':
     case 'trend':
     case 'mean':
+    case 'terms_stats':
       getAnalysis();
       break;
     case 'id':
@@ -135,7 +136,7 @@ function getPage() {
           resultjson.kibana.default_fields : window.hashjson.fields
 
         // Create 'Columns' section
-        $('#fields').html("<div class='input-prepend'>" +
+        $('#fields').html("<a href='hoiio.html'>Hoiio!</a><br/><br/><div class='input-prepend'>" +
           "<span class='add-on'><i class='icon-columns'></i></span>" +
           "<input id='field_filter' type='text' class='span' placeholder='Columns' /></div>" +
           "<ul class='unselected nav nav-pills nav-stacked'></ul>");
@@ -203,6 +204,10 @@ function getPage() {
 }
 
 function getGraph(interval) {
+  getGraph(interval, false)
+}
+
+function getGraph(interval, is_hack) {
 
   //generate the parameter for the php script
   var sendhash = encodeURIComponent(window.location.hash.replace(/^#/, ''));
@@ -210,7 +215,7 @@ function getGraph(interval) {
   window.segment = typeof window.segment === 'undefined' ? '' : window.segment;
   //Get the data and display it
   window.request = $.ajax({
-    url: "api/graph/"+mode+"/"+interval+"/"+sendhash+"/"+window.segment,
+    url: "api/graph/"+mode+"/"+is_hack+"/"+interval+"/"+sendhash+"/"+window.segment,
     type: "GET",
     cache: false,
     success: function (json) {
@@ -242,7 +247,7 @@ function getGraph(interval) {
               "background-size":  "100% 100%"
             });
           }
-          getGraph(interval);
+          getGraph(interval, is_hack);
         } else {
           if(typeof window.segment !== 'undefined')
             window['segment'] = undefined;
@@ -430,7 +435,44 @@ function getAnalysis() {
           pieChart(data,'#piechart')
 
           break;
+        case 'terms_stats':
+            var index_count  = $.isArray(resultjson.kibana.index) ?
+                resultjson.kibana.index : resultjson.kibana.index.split(',').length;
 
+            var title = ''+
+                '<h2>Terms Stats Facet of ' +
+                '<strong>' + analyze_field + '</strong> field(s) ' +
+                '<button class="btn tiny btn-info" ' +
+                'style="display: inline-block" id="back_to_logs">back to logs' +
+                '</button>' +
+                '<div class=pull-left id="piechart"></div></h2>' +
+                'This analysis is based on the events in the <strong>' +
+                index_count +'</strong> most recent indices ' +
+                'for your query in your selected timeframe.<br><br>'+
+                '';
+
+            $('#logs').html(
+                title+CreateTableView(termsStatsTable(resultjson),'logs analysis tablesorter'));
+
+            $("#tbl").tablesorter({sortList: [[0,0]]});
+            sbctl('hide',false)
+            graphLoading();
+            window.hashjson.graphmode = 'mean';
+            getGraph(window.interval, true);
+
+            // Calculate data for pie chart
+            var data = [];
+            $.each(resultjson.facets.terms_stats.terms,function(i,term) {
+                data[i] = { label: term['term'], data: term['count'], color: window.graph_colors[i] };
+            });
+            var remain = data.slice(window.graph_colors.length,data.length)
+            var r = 0
+            for (var x in remain) { r += remain[x].data; }
+            data = data.slice(0,window.graph_colors.length)
+            data.push({ label: "The Rest", data: r, color: '#AAA' })
+            pieChart(data,'#piechart')
+
+            break;
         case 'score':
           if (resultjson.hits.count == resultjson.hits.total) {
             var basedon = "<strong>all "
@@ -591,6 +633,47 @@ function termsTable(resultjson) {
   return tblArray;
 }
 
+function termsStatsTable(resultjson) {
+    var i = 0;
+    var tblArray = new Array();
+    for (var obj in resultjson.facets.terms_stats.terms) {
+        var object = resultjson.facets.terms_stats.terms[obj];
+        var metric = {};
+        var color = i < window.graph_colors.length ?
+            " <i class=icon-sign-blank style='color:"+window.graph_colors[i]+"'><i>" : '';
+
+        metric['Rank'] = (i + 1) + color;
+        var termv = object.term.split('||');
+        var fields = window.hashjson.analyze_field.split(',,');
+        for (var count = 0; count < fields.length; count++) {
+            // TODO: This is so wrong, really shouldn't be matching a string here
+            if (typeof termv[count] === 'undefined' || termv[count] == "null" ) {
+                var value = ''
+            } else {
+                var value = xmlEnt(termv[count])
+            }
+            metric[fields[count]] = value;
+        }
+        var analyze_field = fields.join(' ')
+        metric['Count'] = addCommas(object.count);
+        metric['Percent'] =  Math.round(
+            object.count / resultjson.hits.total * 10000
+        ) / 100 + '%';
+        metric['Mean'] = Math.round(object.mean * 100) / 100;
+        metric['Min'] = object.min;
+        metric['Max'] = object.max;
+        metric['Action'] =  "<span class='raw'>" + xmlEnt(object.term) + "</span>"+
+      "<i data-mode='' data-field='" + analyze_field + "' "+
+        "class='msearch icon-search icon-large jlink'></i> " +
+      "<i data-mode='analysis' data-field='"+analyze_field+"' "+
+        "class='msearch icon-cog icon-large jlink'></i>";
+
+    tblArray[i] = metric;
+    i++;
+  }
+  return tblArray;
+}
+
 function setMeta(hits, mode) {
   if ( hits == 'loading' ) {
     $('#meta').html('<img src=images/ajax-loader.gif>');
@@ -678,6 +761,8 @@ function enable_popovers() {
           "data-field="+field+"><i class='icon-th-list'></i> Terms</button>" +
           "<button class='btn btn-small analyze_btn' rel='mean' " +
           "data-field="+field+"><i class='icon-bar-chart'></i> Stats</button>" +
+          "<button class='btn btn-small analyze_btn' rel='terms_stats' " +
+          "data-field="+field+"><i class='icon-th-list'></i> Terms Stats</button>" +
         "</div>";
       return str;
     }
@@ -771,7 +856,7 @@ function CreateTableView(objArray, theme, enableHeader, widths) {
   // If the returned data is an object do nothing, else try to parse
   var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
 
-  var str = '<table class="' + theme + '">';
+  var str = '<table class="' + theme + '" id="tbl">';
 
     // table head
   if (enableHeader) {
@@ -1525,6 +1610,7 @@ function getGraphColor(mode) {
   switch(mode)
   {
   case "mean":
+  case "mean_time":
     var color = '#ef9a23';
   break;
   default:

@@ -38,6 +38,10 @@ class KibanaApp < Sinatra::Base
      end
 
   end
+  
+  use Rack::Auth::Basic, "Restricted Area" do |username, password|
+	[username, password] == ['admin', 'hoiio123kid']
+  end
 
   get '/' do
     send_file File.join(settings.public_folder, 'index.html')
@@ -71,8 +75,9 @@ class KibanaApp < Sinatra::Base
     JSON.generate(result.response)
   end
 
-  get '/api/graph/:mode/:interval/:hash/?:segment?' do
+  get '/api/graph/:mode/:hack/:interval/:hash/?:segment?' do
     segment = params[:segment].nil? ? 0 : params[:segment].to_i
+	hack = params[:hack]
 
     req     = ClientRequest.new(params[:hash])
     case params[:mode]
@@ -80,8 +85,12 @@ class KibanaApp < Sinatra::Base
       query   = DateHistogram.new(
         req.search,req.from,req.to,params[:interval].to_i)
     when "mean"
-      query   = StatsHistogram.new(
-        req.search,req.from,req.to,req.analyze,params[:interval].to_i)
+	  if (hack == "true")
+	    query   = StatsHistogram.new(req.search,req.from,req.to,'@fields.execution_time',params[:interval].to_i)
+	  else
+	    query   = StatsHistogram.new(
+		  req.search,req.from,req.to,req.analyze,params[:interval].to_i)
+	  end
     end
     indices = Kelastic.index_range(req.from,req.to)
     result  = KelasticSegment.new(query,indices,segment)
@@ -215,6 +224,19 @@ class KibanaApp < Sinatra::Base
     else
       JSON.generate({"error" => "Statistics not supported for type: #{type}"})
     end
+  end
+  
+  get '/api/analyze/:field/terms_stats/:hash' do
+    req     = ClientRequest.new(params[:hash])
+    query   = TermsStatsFacet.new(req.search,req.from,req.to,params[:field], '@fields.execution_time')
+    indices = Kelastic.index_range(req.from,req.to,KibanaConfig::Facet_index_limit)
+    result  = KelasticMultiFlat.new(query,indices)
+
+    # Not sure this is required. This should be able to be handled without
+    # server communication
+    result.response['kibana']['time'] = {"from" => req.from.iso8601, "to" => req.to.iso8601}
+
+    JSON.generate(result.response)
   end
 
   get '/api/stream/:hash/?:from?' do
