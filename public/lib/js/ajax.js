@@ -136,7 +136,7 @@ function getPage() {
           resultjson.kibana.default_fields : window.hashjson.fields
 
         // Create 'Columns' section
-        $('#fields').html("<a href='hoiio.html'>Hoiio!</a><br/><br/><div class='input-prepend'>" +
+        $('#fields').html("<a href='hoiio.html'>Hoiio!</a><br/><br/><a href='errorCode.html'>Error Report</a><br/><br/><div class='input-prepend'>" +
           "<span class='add-on'><i class='icon-columns'></i></span>" +
           "<input id='field_filter' type='text' class='span' placeholder='Columns' /></div>" +
           "<ul class='unselected nav nav-pills nav-stacked'></ul>");

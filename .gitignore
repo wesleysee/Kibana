@@ -3,3 +3,5 @@ KibanaConfig.rbackup.rb
 *.DS_Store
 /tmp/*
 Kibana.war
+Gemfile.lock
+/Gemfile.lock

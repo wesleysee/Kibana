@@ -251,3 +251,28 @@ class StatsHistogram < Query
   end
 end
 
+=begin
+= Class: TermsStatsFacet < Query
+  Perform a terms facet query on a field
+
+== Parameters:
+  query::   The query text. Blank or * queries are converted to match_all
+  from::    Beginning of time range
+  to::      End of time range (Default: NOW)
+  field::   Field to facet
+  value::   Field to analyze
+=end
+class TermsStatsFacet < Query
+  def initialize(question, from, to, key_field, value_field)
+    super(question, from, to)
+    @query['facets'] = {
+        "terms_stats" => {
+            "terms_stats" => {
+                "key_field" => key_field,
+                "value_field" => value_field,
+                "size"  => 0
+            }
+        }
+    }
+  end
+end
